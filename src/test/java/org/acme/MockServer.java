@@ -1,7 +1,11 @@
 package org.acme;
 
-import java.util.List;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.Map;
+import java.util.function.Consumer;
 
 import org.junit.runner.*;
 import org.junit.runners.model.*;
@@ -9,6 +13,7 @@ import org.mockserver.Version;
 import org.mockserver.client.MockServerClient;
 import org.testcontainers.containers.MockServerContainer;
 import org.testcontainers.containers.Network;
+import org.testcontainers.containers.output.OutputFrame;
 import org.testcontainers.utility.DockerImageName;
 
 import io.quarkus.test.common.DevServicesContext;
@@ -31,16 +36,13 @@ public class MockServer implements QuarkusTestResourceLifecycleManager, DevServi
     public Map<String, String> start() {
         log.info("Start mockserver");
         mockServerContainer = new MockServerContainer(MOCKSERVER_IMAGE_NAME.withTag(MOCKSERVER_TAG))
-                .withExposedPorts(EXPOSED_PORT);
-//                .withLogConsumer(new Slf4jLogConsumer(log));
+                .withExposedPorts(EXPOSED_PORT)
+                .withNetworkAliases(ALIAS)
+                .withLogConsumer(new LogWriter("target", ALIAS));
 
         if (containerNetworkId != null) {
             log.info("ContainerNetworkId {} configured, using that to start mock server instance", containerNetworkId);
-            mockServerContainer.setNetworkAliases(List.of(ALIAS));
-            mockServerContainer.setNetworkMode(containerNetworkId);
-//            mockServerContainer.setNetwork(Network.builder().id(containerNetworkId).build());
-//            mockServerContainer.setNetwork(Network.SHARED);
-//            mockServerContainer.setNetwork(new JoinNetwork());
+            mockServerContainer.setNetwork(new JoinNetwork());
         } else {
             log.info("No network passed");
         }
@@ -106,6 +108,35 @@ public class MockServer implements QuarkusTestResourceLifecycleManager, DevServi
         @Override
         public Statement apply(Statement statement, Description description) {
             return null;
+        }
+    }
+
+    private static class LogWriter implements Consumer<OutputFrame> {
+        private final Path logPath;
+
+        LogWriter(String path, String containerName) {
+            logPath = Path.of(path, containerName + ".log");
+        }
+
+        public void accept(OutputFrame outputFrame) {
+            OutputFrame.OutputType outputType = outputFrame.getType();
+            String utf8String = outputFrame.getUtf8String();
+
+            try {
+                switch (outputType) {
+                    case END:
+                        break;
+                    case STDOUT:
+                    case STDERR:
+                        Files.write(logPath, utf8String.getBytes(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                        break;
+                    default:
+                        throw new IllegalArgumentException("Unexpected outputType " + outputType);
+                }
+            } catch (IOException ex) {
+                log.info("Writing log failed: " + ex.getMessage());
+                // ignore IOExceptions.
+            }
         }
     }
 }

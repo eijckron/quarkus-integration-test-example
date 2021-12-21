@@ -18,7 +18,7 @@
     <!-- Framework versions-->
     <lombok.version>1.18.22</lombok.version>
     <mock-server.version>5.11.2</mock-server.version>
-    <quarkus.version>2.5.1.Final</quarkus.version>
+    <quarkus.version>2.5.4.Final</quarkus.version>
 
     <compiler-plugin.version>3.8.1</compiler-plugin.version>
     <failsafe-plugin.version>3.0.0-M5</failsafe-plugin.version>
@@ -44,7 +44,7 @@
     </dependency>
     <dependency>
       <groupId>io.quarkus</groupId>
-      <artifactId>quarkus-container-image-docker</artifactId>
+      <artifactId>quarkus-container-image-jib</artifactId>
     </dependency>
     <dependency>
       <groupId>io.quarkus</groupId>
